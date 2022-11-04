@@ -1,0 +1,67 @@
+//declarative pipeline sample
+
+pipeline{
+
+	// Jenkins AWS Access & Secret key
+	environment {
+	    AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+	    AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+	}
+
+	agent any
+
+	options {
+	    timestamps ()
+	}
+
+	tools{
+	    terraform 'terraform'
+	}
+
+	stages{
+   	 	// Check out from GIT, Snippet Generated from pipeline Syntax --> Checkout: Check out from version control 
+		stage('Checkout SCM'){
+			steps{
+				git branch: 'master', credentialsId: 'Jenkins_terraform_ssh_repo', url: 'https://github.com/.....'
+			}
+		}
+
+		// Terraform Init Stage
+		stage('terraform init'){
+			steps{
+				sh 'terraform init'
+			}
+		}
+
+		// Terraform Plan Stage
+		stage('terraform plan'){
+			steps{
+				sh 'terraform plan'
+				sh 'terraform show -no-color tfplan > tfplan.txt'			
+			}
+		}
+
+    	// Approvel Stage 
+ 		stage('Waiting for Approvals'){
+ 	   		 steps{
+ 	        	timeout(time: 'hours', unit: 12){
+ 	          		input message: Plan validated. Please approve to create resources in AWS
+ 	        	}
+ 	   	 	}
+ 		} 
+
+		// Terraform Apply Stage
+		stage('terraform apply'){
+			steps{
+				sh 'terraform apply --auto-approve'
+			}
+		}
+
+	}
+
+	post {
+    	always {
+            archiveArtifacts artifacts: 'tfplan.txt'
+    	}
+	}
+}
